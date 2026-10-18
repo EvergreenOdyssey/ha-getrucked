@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DATA_SEED_PAYLOADS, DOMAIN
@@ -14,6 +15,10 @@ from .frontend import async_register_frontend
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 type GetRuckedConfigEntry = ConfigEntry[GetRuckedDataUpdateCoordinator]
+
+# Config-entry only -- there's no YAML configuration for this integration,
+# just the async_setup() below doing one-time frontend/card registration.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
