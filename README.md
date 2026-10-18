@@ -13,7 +13,7 @@ How you add this repository depends on your Home Assistant version:
 
 ### Home Assistant 2026.11 and newer (Marketplace)
 
-Starting with 2026.11, the standalone HACS integration is replaced by **Marketplace**, built into Home Assistant under **Settings → Marketplace**. It reads the same catalog as HACS and uses the same `hacs.json`, so this repo doesn't need separate support for it — but it does apply stricter checks before installing a repo, and (per the official docs) expects the repo to have at least one published **release**, not just commits on the default branch. This repo isn't tagged yet (see Status below), so if you're already on 2026.11+, installing via Marketplace may not work cleanly until v0.1.0 is tagged — the exact add-a-custom-repo flow for Marketplace isn't documented publicly as of this writing, so test this one yourself rather than taking this README's word for it.
+Starting with 2026.11, the standalone HACS integration is replaced by **Marketplace**, built into Home Assistant under **Settings → Marketplace**. It reads the same catalog as HACS and uses the same `hacs.json`, so this repo doesn't need separate support for it — but it does apply stricter checks before installing a repo, and (per the official docs) expects the repo to have at least one published **release**. This repo now has pre-releases (see Status below), so that part's covered — the exact add-a-custom-repo flow for Marketplace itself still isn't documented publicly as of this writing, so test this one yourself rather than taking this README's word for it.
 
 ### Then, either way
 
@@ -24,12 +24,32 @@ That's it — a "Get-Rucked" device appears with all the sensors below, polling 
 
 ## Entities
 
-- Latest Ruck Distance (+ date, type, pace, weight, elevation, steps, calories, terrain, rating as attributes)
+- Latest Ruck Distance (+ date, type, elevation loss, terrain, cadence, rating, weather condition, max heart rate, stop count, dog name as attributes)
+- Latest Ruck Duration, Pace, Pack Weight, Elevation Gain, Calories, Steps, Weather Temp, Heart Rate (Avg) — promoted to their own sensors (so they get real history graphs) rather than staying as attributes
 - Weekly Distance / Monthly Distance (+ session count, minutes, elevation, calories, training load as attributes)
 - Fitness (CTL), Fatigue (ATL), Form (TSB) (+ a plain-language label)
 - Rank (+ total miles and icon as attributes)
 - Distance To Next Rank
 - One **Goal: `<title>`** sensor per active goal (percent complete, with the goal's type/target/period as attributes) — these are created and removed automatically as you add or delete goals in the app.
+
+## The dashboard card
+
+A bundled `custom:getrucked-card` ships with the integration — no separate install, no manual dashboard resource. It's served and registered automatically on setup.
+
+| Compact | Detailed |
+|---|---|
+| ![Compact card, light theme](docs/screenshots/card-compact-light.png) | ![Detailed card, light theme](docs/screenshots/card-detailed-light.png) |
+| ![Compact card, dark theme](docs/screenshots/card-compact-dark.png) | ![Detailed card, dark theme](docs/screenshots/card-detailed-dark.png) |
+
+*(Renders of the approved design — see Status below for where live-instance verification stands.)*
+
+**Adding the card:**
+
+1. Edit a dashboard → **Add Card** → search for **Get-Rucked** (or add it as `type: custom:getrucked-card` in YAML mode).
+2. Pick your Get-Rucked device, a **Compact** or **Detailed** layout, and which metrics/Latest Ruck fields to show — each list has checkboxes and ▲▼ buttons to reorder. Compact defaults to rank, week/month, Form (TSB), and a condensed Latest Ruck; Training Load and Goals are off by default in compact (toggle them on if you want a taller card).
+3. Tapping any metric opens its normal Home Assistant more-info dialog (history graph), the same as tapping an entity row anywhere else in HA.
+
+The card follows your dashboard's light/dark theme automatically — only the "Get-Rucked" banner strip stays a fixed near-black, matching the brand everywhere else in the product.
 
 ## Errors and re-auth
 
@@ -43,18 +63,28 @@ Don't want to use HACS? A YAML-based setup (no custom integration) is also docum
 
 ## Status
 
-Not yet tagged as a release — see the repo's issues/PRs for current state. CI (hassfest, HACS validation, pytest) runs on every push.
+Pre-release (currently beta.3, after beta.1/beta.2) — not yet tagged as the full `v0.1.0`. The card above has been through a design-review mockup pass (the screenshots are that approved design) but **not yet exercised on a real Home Assistant instance** — things like the exact `window.customCards` picker behavior, the storage-mode Lovelace resource auto-create/update, and the "Premium required" detection via `hass.issues` are implemented against the documented APIs but still need a live confirm. `v0.1.0` won't be tagged until that happens.
 
-No custom icon/logo ships yet. Since Home Assistant 2026.3, a custom integration can ship its own brand images locally (a `brand/` folder inside `custom_components/getrucked/` with `icon.png`/`logo.png`, `@2x` variants, and optional `dark_*` versions) instead of submitting to the [home-assistant/brands](https://github.com/home-assistant/brands) repo — in fact brands-repo submissions for custom integrations are being phased out now that the local option exists. Adding one is a follow-up, not done here.
+Local brand icon (`custom_components/getrucked/brand/`) is already in place, per Home Assistant 2026.3+'s local-brand-image support — no `home-assistant/brands` PR needed.
 
 ## Development
 
+Python (the integration):
 ```
 pip install -r requirements_test.txt
 pytest
 ```
 
-CI runs [hassfest](https://www.home-assistant.io/docs/creating_integration_manifest/), [HACS validation](https://hacs.xyz/docs/publish/integration/), and the test suite on every push and PR.
+The dashboard card (TypeScript + [Lit](https://lit.dev/), bundled with [esbuild](https://esbuild.github.io/)):
+```
+npm install
+npm test          # vitest, pure-logic unit tests (entity matching, formatting)
+npm run build     # rebuilds custom_components/getrucked/www/getrucked-card.js
+```
+
+The built `getrucked-card.js` is committed (that's the file HA actually serves) — CI fails if it doesn't match a fresh `npm run build` of the current source, so a source change without a rebuild can't slip through.
+
+CI runs [hassfest](https://www.home-assistant.io/docs/creating_integration_manifest/), [HACS validation](https://hacs.xyz/docs/publish/integration/), the Python test suite, and the card's typecheck/tests/build on every push and PR.
 
 ## License
 

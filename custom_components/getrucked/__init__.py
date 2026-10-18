@@ -5,13 +5,22 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import ConfigType
 
 from .const import DATA_SEED_PAYLOADS, DOMAIN
 from .coordinator import GetRuckedDataUpdateCoordinator
+from .frontend import async_register_frontend
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 type GetRuckedConfigEntry = ConfigEntry[GetRuckedDataUpdateCoordinator]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve and register the dashboard card once, regardless of how many
+    accounts (config entries) get added."""
+    await async_register_frontend(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: GetRuckedConfigEntry) -> bool:

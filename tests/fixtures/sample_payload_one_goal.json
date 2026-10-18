@@ -20,7 +20,14 @@
     "calories_burned": 440,
     "avg_cadence": 112,
     "terrain": "trail",
-    "rating": 5
+    "rating": 5,
+    "weather_temp": 70,
+    "weather_temp_unit": "°F",
+    "weather_condition": "Sunny",
+    "heart_rate_avg": 110,
+    "heart_rate_max": 133,
+    "stop_count": null,
+    "dog_name": null
   },
   "weekly": {
     "session_count": 4,

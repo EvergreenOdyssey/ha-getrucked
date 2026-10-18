@@ -31,3 +31,22 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements_test.txt
       - run: pytest
+
+  card:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+      - name: Verify the committed bundle matches a fresh build
+        run: |
+          if ! git diff --quiet -- custom_components/getrucked/www/getrucked-card.js; then
+            echo "::error::custom_components/getrucked/www/getrucked-card.js is out of date -- run 'npm run build' and commit the result."
+            git diff -- custom_components/getrucked/www/getrucked-card.js
+            exit 1
+          fi

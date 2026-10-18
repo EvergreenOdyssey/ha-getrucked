@@ -6,3 +6,8 @@ htmlcov/
 .venv/
 venv/
 *.egg-info/
+
+node_modules/
+# custom_components/getrucked/www/getrucked-card.js IS committed (the built
+# bundle users actually get) -- only ignore build-tool cache artifacts here.
+*.tsbuildinfo

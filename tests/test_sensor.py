@@ -82,6 +82,63 @@ async def test_static_sensors_match_payload(hass):
     assert entry is not None
 
 
+async def test_promoted_latest_ruck_sensors(hass):
+    """duration/pace/pack weight/elevation gain/calories/steps/weather
+    temp/avg heart rate get their own sensors (for history graphs), and
+    are no longer duplicated as Latest Ruck Distance attributes."""
+    payload = load_fixture("sample_payload.json")
+    await _setup_entry(hass, payload)
+    account_id = payload["account_id"]
+    ruck = payload["latest_ruck"]
+
+    duration = _state_for_unique_id(hass, f"{account_id}_latest_ruck_duration")
+    assert duration.state == str(ruck["duration_minutes"])
+
+    pace = _state_for_unique_id(hass, f"{account_id}_latest_ruck_pace")
+    assert pace.state == ruck["pace"]
+    assert pace.attributes["unit"] == ruck["pace_unit"]
+
+    weight = _state_for_unique_id(hass, f"{account_id}_latest_ruck_pack_weight")
+    assert weight.state == str(ruck["weight"])
+    assert weight.attributes["unit_of_measurement"] == "lb"
+
+    elevation = _state_for_unique_id(hass, f"{account_id}_latest_ruck_elevation_gain")
+    assert elevation.state == str(ruck["elevation_gain"])
+    assert elevation.attributes["unit_of_measurement"] == "ft"
+
+    calories = _state_for_unique_id(hass, f"{account_id}_latest_ruck_calories")
+    assert calories.state == str(ruck["calories_burned"])
+
+    steps = _state_for_unique_id(hass, f"{account_id}_latest_ruck_steps")
+    assert steps.state == str(ruck["steps"])
+
+    weather = _state_for_unique_id(hass, f"{account_id}_latest_ruck_weather_temp")
+    assert weather.state == str(ruck["weather_temp"])
+    assert weather.attributes["condition"] == ruck["weather_condition"]
+
+    heart_rate = _state_for_unique_id(hass, f"{account_id}_latest_ruck_heart_rate_avg")
+    assert heart_rate.state == str(ruck["heart_rate_avg"])
+    assert heart_rate.attributes["max"] == ruck["heart_rate_max"]
+
+    # These fields moved off Latest Ruck Distance's attributes once promoted.
+    latest = _state_for_unique_id(hass, f"{account_id}_latest_ruck_distance")
+    for removed in ("duration_minutes", "pace", "weight", "elevation_gain", "calories_burned", "steps", "weather_temp", "heart_rate_avg"):
+        assert removed not in latest.attributes
+
+
+async def test_pack_weight_sensor_null_when_no_weight_logged(hass):
+    """A ruck with no logged weight (a real, common state) must not crash
+    the sensor -- it reports unknown rather than a fake "No pack" string,
+    which is a card-level display choice, not a sensor-level one."""
+    payload = load_fixture("sample_payload.json")
+    payload["latest_ruck"]["weight"] = None
+    await _setup_entry(hass, payload)
+    account_id = payload["account_id"]
+
+    weight = _state_for_unique_id(hass, f"{account_id}_latest_ruck_pack_weight")
+    assert weight.state == "unknown"
+
+
 async def test_goal_sensors_created_for_each_goal(hass):
     payload = load_fixture("sample_payload.json")
     account_id = payload["account_id"]

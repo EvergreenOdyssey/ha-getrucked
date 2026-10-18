@@ -44,6 +44,14 @@
   "entity": {
     "sensor": {
       "latest_ruck_distance": { "name": "Latest Ruck Distance" },
+      "latest_ruck_duration": { "name": "Latest Ruck Duration" },
+      "latest_ruck_pace": { "name": "Latest Ruck Pace" },
+      "latest_ruck_pack_weight": { "name": "Latest Ruck Pack Weight" },
+      "latest_ruck_elevation_gain": { "name": "Latest Ruck Elevation Gain" },
+      "latest_ruck_calories": { "name": "Latest Ruck Calories" },
+      "latest_ruck_steps": { "name": "Latest Ruck Steps" },
+      "latest_ruck_weather_temp": { "name": "Latest Ruck Weather Temp" },
+      "latest_ruck_heart_rate_avg": { "name": "Latest Ruck Heart Rate (Avg)" },
       "weekly_distance": { "name": "Weekly Distance" },
       "monthly_distance": { "name": "Monthly Distance" },
       "fitness_ctl": { "name": "Fitness (CTL)" },

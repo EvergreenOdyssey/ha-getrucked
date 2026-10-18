@@ -13,7 +13,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfLength
+from homeassistant.const import (
+    PERCENTAGE,
+    UnitOfLength,
+    UnitOfMass,
+    UnitOfTemperature,
+    UnitOfTime,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
@@ -24,6 +30,9 @@ from .const import DOMAIN
 from .coordinator import GetRuckedDataUpdateCoordinator
 
 _DISTANCE_UNIT = {"mi": UnitOfLength.MILES, "km": UnitOfLength.KILOMETERS}
+_ELEVATION_UNIT = {"ft": UnitOfLength.FEET, "m": UnitOfLength.METERS}
+_WEIGHT_UNIT = {"lbs": UnitOfMass.POUNDS, "kg": UnitOfMass.KILOGRAMS}
+_TEMP_UNIT = {"°F": UnitOfTemperature.FAHRENHEIT, "°C": UnitOfTemperature.CELSIUS}
 
 
 def _device_info(entry: ConfigEntry) -> DeviceInfo:
@@ -68,24 +77,85 @@ SENSORS: tuple[GetRuckedSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: _latest_ruck(d).get("distance"),
         unit_fn=lambda d: _DISTANCE_UNIT.get(_latest_ruck(d).get("distance_unit")),
+        # duration/pace/pack weight/elevation gain/calories/steps/weather
+        # temp/heart rate avg are promoted to their own sensors below (for
+        # history graphs) and deliberately dropped here to avoid
+        # duplication. Only non-promoted fields remain as attributes.
         attrs_fn=lambda d: {
             "date": _latest_ruck(d).get("date"),
             "type": _latest_ruck(d).get("type"),
-            "duration_minutes": _latest_ruck(d).get("duration_minutes"),
-            "pace": _latest_ruck(d).get("pace"),
-            "pace_unit": _latest_ruck(d).get("pace_unit"),
-            "weight": _latest_ruck(d).get("weight"),
-            "weight_unit": _latest_ruck(d).get("weight_unit"),
-            "elevation_gain": _latest_ruck(d).get("elevation_gain"),
             "elevation_loss": _latest_ruck(d).get("elevation_loss"),
             "elevation_unit": _latest_ruck(d).get("elevation_unit"),
-            "steps": _latest_ruck(d).get("steps"),
-            "calories_burned": _latest_ruck(d).get("calories_burned"),
             "avg_cadence": _latest_ruck(d).get("avg_cadence"),
             "terrain": _latest_ruck(d).get("terrain"),
             "rating": _latest_ruck(d).get("rating"),
+            "weather_condition": _latest_ruck(d).get("weather_condition"),
+            "heart_rate_max": _latest_ruck(d).get("heart_rate_max"),
+            "stop_count": _latest_ruck(d).get("stop_count"),
+            "dog_name": _latest_ruck(d).get("dog_name"),
             "calc_version": d.get("calc_version"),
         },
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_duration",
+        translation_key="latest_ruck_duration",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        value_fn=lambda d: _latest_ruck(d).get("duration_minutes"),
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_pace",
+        translation_key="latest_ruck_pace",
+        value_fn=lambda d: _latest_ruck(d).get("pace"),
+        attrs_fn=lambda d: {"unit": _latest_ruck(d).get("pace_unit")},
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_pack_weight",
+        translation_key="latest_ruck_pack_weight",
+        device_class=SensorDeviceClass.WEIGHT,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: _latest_ruck(d).get("weight"),
+        unit_fn=lambda d: _WEIGHT_UNIT.get(_latest_ruck(d).get("weight_unit")),
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_elevation_gain",
+        translation_key="latest_ruck_elevation_gain",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: _latest_ruck(d).get("elevation_gain"),
+        unit_fn=lambda d: _ELEVATION_UNIT.get(_latest_ruck(d).get("elevation_unit")),
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_calories",
+        translation_key="latest_ruck_calories",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="kcal",
+        value_fn=lambda d: _latest_ruck(d).get("calories_burned"),
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_steps",
+        translation_key="latest_ruck_steps",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="steps",
+        value_fn=lambda d: _latest_ruck(d).get("steps"),
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_weather_temp",
+        translation_key="latest_ruck_weather_temp",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: _latest_ruck(d).get("weather_temp"),
+        unit_fn=lambda d: _TEMP_UNIT.get(_latest_ruck(d).get("weather_temp_unit")),
+        attrs_fn=lambda d: {"condition": _latest_ruck(d).get("weather_condition")},
+    ),
+    GetRuckedSensorDescription(
+        key="latest_ruck_heart_rate_avg",
+        translation_key="latest_ruck_heart_rate_avg",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="bpm",
+        value_fn=lambda d: _latest_ruck(d).get("heart_rate_avg"),
+        attrs_fn=lambda d: {"max": _latest_ruck(d).get("heart_rate_max")},
     ),
     GetRuckedSensorDescription(
         key="weekly_distance",
@@ -237,9 +307,15 @@ class GetRuckedSensor(
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        if self.entity_description.attrs_fn is None or self.coordinator.data is None:
-            return None
-        return self.entity_description.attrs_fn(self.coordinator.data)
+        attrs: dict[str, Any] = {}
+        if self.entity_description.attrs_fn is not None and self.coordinator.data is not None:
+            attrs.update(self.entity_description.attrs_fn(self.coordinator.data))
+        if self.entity_description.key == "rank":
+            # The card reads this off the rank entity (always present in
+            # both layouts) to compute its own staleness warning without
+            # guessing at the configured poll interval.
+            attrs["poll_interval_minutes"] = self.coordinator.update_interval.total_seconds() / 60
+        return attrs or None
 
 
 class GetRuckedGoalSensor(

@@ -20,7 +20,14 @@
     "calories_burned": 420,
     "avg_cadence": 110,
     "terrain": "trail",
-    "rating": 5
+    "rating": 5,
+    "weather_temp": 68,
+    "weather_temp_unit": "°F",
+    "weather_condition": "Overcast",
+    "heart_rate_avg": 107,
+    "heart_rate_max": 129,
+    "stop_count": 2,
+    "dog_name": "Barrett"
   },
   "weekly": {
     "session_count": 3,
