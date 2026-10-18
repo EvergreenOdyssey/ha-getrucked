@@ -3,4 +3,4 @@ pytest-asyncio
 # manifest.json depends on the frontend component (for the dashboard
 # card); frontend's own requirement isn't pulled in by `homeassistant`
 # alone, so config-entry setup tests need it installed explicitly.
-hass-frontend
+home-assistant-frontend
