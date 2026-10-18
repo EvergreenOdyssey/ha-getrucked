@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.getrucked.const import CONF_TOKEN, DOMAIN
@@ -13,6 +14,12 @@ from .conftest import FAKE_TOKEN, load_fixture
 
 
 async def _setup_entry(hass, payload) -> MockConfigEntry:
+    # device_class=DISTANCE sensors have their displayed state auto-converted
+    # to HA's configured unit system. The fixtures are in miles, so pin the
+    # test instance to imperial — otherwise these assertions would really be
+    # testing HA's own mi<->km conversion math, not our field mapping.
+    hass.config.units = US_CUSTOMARY_SYSTEM
+
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={CONF_TOKEN: FAKE_TOKEN},

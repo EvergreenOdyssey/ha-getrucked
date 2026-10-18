@@ -33,6 +33,11 @@ async def test_user_flow_success(hass):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_TOKEN: FAKE_TOKEN}
         )
+        # Creating the entry schedules async_setup_entry as a background
+        # task; wait for it (still under the patch, since first refresh
+        # calls the same mocked api.async_get_stats) so it doesn't linger
+        # past the test.
+        await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_TOKEN] == FAKE_TOKEN
