@@ -10,6 +10,8 @@ import {
   formatDogName,
   formatStars,
   formatFooter,
+  capitalize,
+  pluralize,
 } from "../card/format";
 
 describe("formatDistance", () => {
@@ -21,6 +23,9 @@ describe("formatDistance", () => {
   it("handles null", () => {
     expect(formatDistance(null, "mi")).toBe("—");
   });
+  it("treats NaN the same as null, rather than printing literal NaN", () => {
+    expect(formatDistance(NaN, "mi")).toBe("—");
+  });
 });
 
 describe("formatPackWeight", () => {
@@ -29,6 +34,10 @@ describe("formatPackWeight", () => {
   });
   it("shows 1 decimal when present", () => {
     expect(formatPackWeight(35, "lbs")).toBe("35.0 lbs");
+  });
+  it('shows "No pack" for NaN, not "NaN lb" -- the real beta.4 bug: ' +
+    "Number('unknown') is NaN, and a naive null-check lets NaN through", () => {
+    expect(formatPackWeight(NaN, "lb")).toBe("No pack");
   });
 });
 
@@ -45,11 +54,21 @@ describe("formatPace", () => {
 });
 
 describe("formatGoalLine", () => {
-  it('matches the "2.21 / 50 mi · 4%" format', () => {
+  it('matches the "2.21 / 50 mi · 4%" format for distance goals (2 decimals)', () => {
     expect(formatGoalLine(2.21, 50, "mi", 4)).toBe("2.21 / 50 mi · 4%");
   });
-  it("handles a zero-progress goal", () => {
-    expect(formatGoalLine(0, 4, "sessions", 0)).toBe("0.00 / 4 sessions · 0%");
+  it("shows integers, not decimals, for count-type (sessions) goals", () => {
+    expect(formatGoalLine(0, 4, "sessions", 0)).toBe("0 / 4 sessions · 0%");
+    expect(formatGoalLine(1, 4, "sessions", 25)).toBe("1 / 4 sessions · 25%");
+  });
+  it('pluralizes the unit word to match the target count ("1 / 1 session" vs "1 / 4 sessions")', () => {
+    expect(formatGoalLine(0, 1, "sessions", 0)).toBe("0 / 1 session · 0%");
+    expect(formatGoalLine(1, 1, "sessions", 100)).toBe("1 / 1 session · 100%");
+    expect(formatGoalLine(1, 4, "sessions", 25)).toBe("1 / 4 sessions · 25%");
+  });
+  it("is NaN-safe for both numbers and percent", () => {
+    expect(formatGoalLine(NaN, NaN, "mi", NaN)).toBe("0.00 / 0 mi · 0%");
+    expect(formatGoalLine(NaN, NaN, "sessions", NaN)).toBe("0 / 0 sessions · 0%");
   });
 });
 
@@ -82,6 +101,9 @@ describe("formatWeather", () => {
     expect(formatWeather(null, "°F", "Overcast")).toBe("Overcast");
     expect(formatWeather(68, "°F", null)).toBe("68°F");
   });
+  it("treats a NaN temp as absent, falling back to condition alone", () => {
+    expect(formatWeather(NaN, "°F", "Overcast")).toBe("Overcast");
+  });
 });
 
 describe("formatHeartRate", () => {
@@ -90,6 +112,10 @@ describe("formatHeartRate", () => {
   });
   it("returns null when absent", () => {
     expect(formatHeartRate(null, null)).toBeNull();
+  });
+  it("shows a dash for whichever side is NaN, not a literal NaN", () => {
+    expect(formatHeartRate(NaN, 129)).toBe("— / 129 bpm");
+    expect(formatHeartRate(107, NaN)).toBe("107 / — bpm");
   });
 });
 
@@ -110,6 +136,38 @@ describe("formatStars", () => {
   });
   it("returns null when unrated", () => {
     expect(formatStars(null)).toBeNull();
+  });
+  it("returns null for NaN rather than a garbled star string", () => {
+    expect(formatStars(NaN)).toBeNull();
+  });
+});
+
+describe("capitalize", () => {
+  it('"pavement" -> "Pavement"', () => {
+    expect(capitalize("pavement")).toBe("Pavement");
+  });
+  it("leaves already-capitalized text alone", () => {
+    expect(capitalize("Trail")).toBe("Trail");
+  });
+  it("handles empty/missing input without throwing", () => {
+    expect(capitalize("")).toBe("");
+    expect(capitalize(null)).toBe("");
+    expect(capitalize(undefined)).toBe("");
+  });
+});
+
+describe("pluralize", () => {
+  it('"1 sessions" -> "1 session": singular only at exactly 1', () => {
+    expect(pluralize(1, "session")).toBe("session");
+  });
+  it("plural for 0 and for >1", () => {
+    expect(pluralize(0, "session")).toBe("sessions");
+    expect(pluralize(2, "session")).toBe("sessions");
+    expect(pluralize(4, "session")).toBe("sessions");
+  });
+  it("accepts an irregular plural", () => {
+    expect(pluralize(1, "goal")).toBe("goal");
+    expect(pluralize(3, "goal")).toBe("goals");
   });
 });
 

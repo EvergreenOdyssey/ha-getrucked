@@ -5,6 +5,8 @@ import {
   findGoalEntityIds,
   getState,
   hasPremiumRequiredIssue,
+  numericState,
+  rawState,
 } from "../card/entities";
 import type { HomeAssistant } from "../card/hass-types";
 
@@ -102,6 +104,49 @@ describe("findGoalEntityIds", () => {
   it("returns an empty list when there are no goals", () => {
     const hass = makeHass();
     expect(findGoalEntityIds(hass, "dev1")).toEqual([]);
+  });
+});
+
+describe("numericState", () => {
+  it("parses a real numeric state", () => {
+    expect(numericState({ entity_id: "x", state: "42", attributes: {} })).toBe(42);
+  });
+
+  it(
+    'returns null for HA\'s "unknown"/"unavailable" states, not NaN -- ' +
+      'the real beta.4 bug: `state?.state ? Number(state.state) : null` lets ' +
+      '"unknown" (a truthy string) through to Number(), producing NaN',
+    () => {
+      expect(numericState({ entity_id: "x", state: "unknown", attributes: {} })).toBeNull();
+      expect(numericState({ entity_id: "x", state: "unavailable", attributes: {} })).toBeNull();
+    },
+  );
+
+  it("returns null for a missing state object", () => {
+    expect(numericState(null)).toBeNull();
+  });
+
+  it("returns null rather than NaN for genuinely unparseable text", () => {
+    expect(numericState({ entity_id: "x", state: "not a number", attributes: {} })).toBeNull();
+  });
+
+  it("treats 0 as a real value, not as falsy/missing", () => {
+    expect(numericState({ entity_id: "x", state: "0", attributes: {} })).toBe(0);
+  });
+});
+
+describe("rawState", () => {
+  it("returns the state string when present", () => {
+    expect(rawState({ entity_id: "x", state: "Iron Back", attributes: {} })).toBe("Iron Back");
+  });
+
+  it('returns null for "unknown"/"unavailable", not the literal string', () => {
+    expect(rawState({ entity_id: "x", state: "unknown", attributes: {} })).toBeNull();
+    expect(rawState({ entity_id: "x", state: "unavailable", attributes: {} })).toBeNull();
+  });
+
+  it("returns null for a missing state object", () => {
+    expect(rawState(null)).toBeNull();
   });
 });
 

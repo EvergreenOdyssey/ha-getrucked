@@ -2,8 +2,10 @@
 // registry's translation_key, never a hardcoded entity_id -- so the card
 // works for any user's device, regardless of how HA slugified their
 // entity_ids.
-import type { HomeAssistant } from "./hass-types";
+import type { HassEntityState, HomeAssistant } from "./hass-types";
 import { PLATFORM } from "./const";
+
+const NO_VALUE_STATES = new Set(["unknown", "unavailable", ""]);
 
 export interface DeviceOption {
   id: string;
@@ -64,6 +66,26 @@ export function findGoalEntityIds(hass: HomeAssistant, deviceId: string): string
 export function getState(hass: HomeAssistant, entityId: string | null) {
   if (!entityId) return null;
   return hass.states[entityId] ?? null;
+}
+
+/**
+ * Safely reads a numeric value off an entity state. HA reports a sensor
+ * with no data as the literal string "unknown" or "unavailable" -- both
+ * are truthy strings, so a naive `state?.state ? Number(state.state) :
+ * null` silently produces NaN instead of null, which then prints as a
+ * literal "NaN" in any formatted output. This is the one place that
+ * conversion should happen.
+ */
+export function numericState(state: HassEntityState | null): number | null {
+  if (!state || NO_VALUE_STATES.has(state.state)) return null;
+  const n = Number(state.state);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Same null-safety as numericState(), for a raw (non-numeric) state string. */
+export function rawState(state: HassEntityState | null): string | null {
+  if (!state || NO_VALUE_STATES.has(state.state)) return null;
+  return state.state;
 }
 
 /**

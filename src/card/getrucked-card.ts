@@ -18,6 +18,8 @@ import {
   getState,
   hasPremiumRequiredIssue,
   listGetRuckedDevices,
+  numericState,
+  rawState,
 } from "./entities";
 import * as fmt from "./format";
 
@@ -169,11 +171,11 @@ export class GetRuckedCard extends LitElement {
     const rankState = getState(this.hass, entityId);
     const nextEntityId = this._entity("distance_to_next_rank");
     const nextState = getState(this.hass, nextEntityId);
-    const name = rankState?.state ?? "—";
+    const name = rawState(rankState) ?? "—";
     const icon = (rankState?.attributes.icon_emoji as string) ?? "🏅";
     const totalMiles = rankState?.attributes.total_miles as number | undefined;
     const nextRankName = rankState?.attributes.next_rank_name as string | undefined;
-    const milesToNext = nextState?.state ? Number(nextState.state) : null;
+    const milesToNext = numericState(nextState);
 
     return html`
       <div class="gr-rank" @click=${() => fireMoreInfo(this, entityId)}>
@@ -203,9 +205,12 @@ export class GetRuckedCard extends LitElement {
     const monthly = getState(this.hass, monthlyId);
     const tsbId = this._entity("form_tsb");
     const tsbState = getState(this.hass, tsbId);
-    const tsb = tsbState?.state ? Number(tsbState.state) : null;
+    const tsb = numericState(tsbState);
     const label = (tsbState?.attributes.label as string) ?? "";
     const formClass = fmt.formClassForTsb(tsb);
+
+    const weeklySessions = (weekly?.attributes.session_count as number) ?? 0;
+    const monthlySessions = (monthly?.attributes.session_count as number) ?? 0;
 
     const chips: TemplateResult[] = [];
     if (this._hasMetric("weekly_distance")) {
@@ -213,11 +218,13 @@ export class GetRuckedCard extends LitElement {
         <div class="gr-chip" @click=${() => fireMoreInfo(this, weeklyId)}>
           <div class="gr-chip-label">Weekly${threeCol ? "" : " Distance"}</div>
           <div class="gr-chip-value">
-            ${fmt.formatDistance(weekly?.state ? Number(weekly.state) : null, "")}<span class="unit"
+            ${fmt.formatDistance(numericState(weekly), "")}<span class="unit"
               >${weekly?.attributes.unit_of_measurement ?? ""}</span
             >
           </div>
-          <div class="gr-chip-sub">${weekly?.attributes.session_count ?? 0} sessions</div>
+          <div class="gr-chip-sub">
+            ${weeklySessions} ${fmt.pluralize(weeklySessions, "session")}
+          </div>
         </div>
       `);
     }
@@ -226,11 +233,13 @@ export class GetRuckedCard extends LitElement {
         <div class="gr-chip" @click=${() => fireMoreInfo(this, monthlyId)}>
           <div class="gr-chip-label">Monthly${threeCol ? "" : " Distance"}</div>
           <div class="gr-chip-value">
-            ${fmt.formatDistance(monthly?.state ? Number(monthly.state) : null, "")}<span class="unit"
+            ${fmt.formatDistance(numericState(monthly), "")}<span class="unit"
               >${monthly?.attributes.unit_of_measurement ?? ""}</span
             >
           </div>
-          <div class="gr-chip-sub">${monthly?.attributes.session_count ?? 0} sessions</div>
+          <div class="gr-chip-sub">
+            ${monthlySessions} ${fmt.pluralize(monthlySessions, "session")}
+          </div>
         </div>
       `);
     }
@@ -262,7 +271,7 @@ export class GetRuckedCard extends LitElement {
     const atl = getState(this.hass, atlId);
     const tsbId = this._entity("form_tsb");
     const tsbState = getState(this.hass, tsbId);
-    const tsb = tsbState?.state ? Number(tsbState.state) : null;
+    const tsb = numericState(tsbState);
     const label = (tsbState?.attributes.label as string) ?? "";
     const formClass = fmt.formClassForTsb(tsb);
 
@@ -271,11 +280,11 @@ export class GetRuckedCard extends LitElement {
       <div class="gr-chip-grid cols-3">
         <div class="gr-chip" @click=${() => fireMoreInfo(this, ctlId)}>
           <div class="gr-chip-label">Fitness (CTL)</div>
-          <div class="gr-chip-value">${ctl?.state ?? "—"}</div>
+          <div class="gr-chip-value">${numericState(ctl) ?? "—"}</div>
         </div>
         <div class="gr-chip" @click=${() => fireMoreInfo(this, atlId)}>
           <div class="gr-chip-label">Fatigue (ATL)</div>
-          <div class="gr-chip-value">${atl?.state ?? "—"}</div>
+          <div class="gr-chip-value">${numericState(atl) ?? "—"}</div>
         </div>
         <div class="gr-chip" @click=${() => fireMoreInfo(this, tsbId)}>
           <div class="gr-chip-label">Form (TSB)</div>
@@ -291,7 +300,7 @@ export class GetRuckedCard extends LitElement {
     const entityId = this._entity("latest_ruck_distance");
     const distState = getState(this.hass, entityId);
     const attrs = distState?.attributes ?? {};
-    const distance = distState?.state ? Number(distState.state) : null;
+    const distance = numericState(distState);
     const distUnit = (attrs.unit_of_measurement as string) ?? "mi";
 
     const durationState = getState(this.hass, this._entity("latest_ruck_duration"));
@@ -322,25 +331,29 @@ export class GetRuckedCard extends LitElement {
     const fields: TemplateResult[] = [];
     if (this._hasField("pack_weight")) {
       fields.push(
-        field("Pack" + (compact ? "" : " Weight"), fmt.formatPackWeight(
-          weightState?.state ? Number(weightState.state) : null,
-          weightUnit,
-        )) as TemplateResult,
+        field(
+          "Pack" + (compact ? "" : " Weight"),
+          fmt.formatPackWeight(numericState(weightState), weightUnit),
+        ) as TemplateResult,
       );
     }
     if (this._hasField("distance"))
       fields.push(field("Distance", fmt.formatDistance(distance, distUnit)) as TemplateResult);
-    if (this._hasField("duration"))
-      fields.push(field("Duration", durationState?.state ? `${durationState.state} min` : "—") as TemplateResult);
+    if (this._hasField("duration")) {
+      const duration = numericState(durationState);
+      fields.push(field("Duration", duration != null ? `${duration} min` : "—") as TemplateResult);
+    }
     if (this._hasField("pace"))
       fields.push(
-        field("Pace", fmt.formatPace(paceState?.state ?? null, paceState?.attributes.unit as string)) as TemplateResult,
+        field("Pace", fmt.formatPace(rawState(paceState), paceState?.attributes.unit as string)) as TemplateResult,
       );
     if (!compact) {
-      if (this._hasField("elevation_gain"))
+      if (this._hasField("elevation_gain")) {
+        const elevGain = numericState(elevGainState);
         fields.push(
-          field("Elev. Gain", elevGainState?.state ? `${elevGainState.state} ${elevGainUnit}` : "—") as TemplateResult,
+          field("Elev. Gain", elevGain != null ? `${elevGain} ${elevGainUnit}` : "—") as TemplateResult,
         );
+      }
       if (this._hasField("elevation_loss"))
         fields.push(
           field(
@@ -349,23 +362,27 @@ export class GetRuckedCard extends LitElement {
           ) as TemplateResult,
         );
       if (this._hasField("terrain"))
-        fields.push(field("Terrain", (attrs.terrain as string) ?? "—") as TemplateResult);
+        fields.push(field("Terrain", fmt.capitalize(attrs.terrain as string) || "—") as TemplateResult);
       const weather = fmt.formatWeather(
-        weatherState?.state ? Number(weatherState.state) : null,
+        numericState(weatherState),
         weatherUnit,
         attrs.weather_condition as string,
       );
       if (this._hasField("weather") && weather) fields.push(field("Weather", weather) as TemplateResult);
       const heartRate = fmt.formatHeartRate(
-        hrState?.state ? Number(hrState.state) : null,
+        numericState(hrState),
         hrState?.attributes.max as number,
       );
       if (this._hasField("heart_rate") && heartRate)
         fields.push(field("Heart Rate", heartRate, "avg / max") as TemplateResult);
-      if (this._hasField("steps"))
-        fields.push(field("Steps", stepsState?.state ? Number(stepsState.state).toLocaleString() : "—") as TemplateResult);
-      if (this._hasField("calories"))
-        fields.push(field("Calories", caloriesState?.state ?? "—") as TemplateResult);
+      if (this._hasField("steps")) {
+        const steps = numericState(stepsState);
+        fields.push(field("Steps", steps != null ? steps.toLocaleString() : "—") as TemplateResult);
+      }
+      if (this._hasField("calories")) {
+        const calories = numericState(caloriesState);
+        fields.push(field("Calories", calories != null ? String(calories) : "—") as TemplateResult);
+      }
       if (this._hasField("cadence"))
         fields.push(field("Cadence", attrs.avg_cadence != null ? `${attrs.avg_cadence} spm` : "—") as TemplateResult);
       const dog = fmt.formatDogName(attrs.dog_name as string);
@@ -409,6 +426,7 @@ export class GetRuckedCard extends LitElement {
       ${goalIds.map((id) => {
         const s = getState(this.hass, id);
         const a = s?.attributes ?? {};
+        const percent = numericState(s);
         return html`
           <div class="gr-goal" @click=${() => fireMoreInfo(this, id)}>
             <div class="gr-goal-head">
@@ -418,12 +436,12 @@ export class GetRuckedCard extends LitElement {
                   a.current_value as number,
                   a.target_value as number,
                   a.unit as string,
-                  s?.state ? Number(s.state) : null,
+                  percent,
                 )}</span
               >
             </div>
             <div class="gr-goal-track">
-              <div class="gr-goal-fill" style="width: ${s?.state ?? 0}%;"></div>
+              <div class="gr-goal-fill" style="width: ${percent ?? 0}%;"></div>
             </div>
           </div>
         `;
@@ -458,7 +476,15 @@ export class GetRuckedCard extends LitElement {
       --gr-amber: #f59e0b;
       --gr-amber-soft: rgba(245, 158, 11, 0.12);
       --gr-amber-border: rgba(245, 158, 11, 0.35);
-      --gr-green: #22c55e;
+      /* Exact match to getFormStatus() in the app (utils/trainingLoad.js):
+         Fresh #34d399, Optimal #f59e0b (yes, the same amber as the brand
+         accent -- that's the app's real color for "Optimal," not a mistake
+         here), Fatigued #f87171. */
+      --gr-form-fresh: #34d399;
+      --gr-form-fatigued: #f87171;
+      /* General-purpose warning red (footer stale notice) -- intentionally
+         separate from --gr-form-fatigued, which must stay pinned to the
+         app's own color regardless of this one. */
       --gr-red: #ef4444;
       --gr-chip-bg: var(--secondary-background-color, rgba(128, 128, 128, 0.08));
       --gr-divider: var(--divider-color, rgba(128, 128, 128, 0.2));
@@ -601,13 +627,13 @@ export class GetRuckedCard extends LitElement {
       margin-top: 2px;
     }
     .form-fresh {
-      color: var(--gr-green);
+      color: var(--gr-form-fresh);
     }
     .form-neutral {
       color: var(--gr-amber);
     }
     .form-fatigued {
-      color: var(--gr-red);
+      color: var(--gr-form-fatigued);
     }
     .gr-ruck-head,
     .gr-ruck-head-compact {

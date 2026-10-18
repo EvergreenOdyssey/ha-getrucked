@@ -1,9 +1,33 @@
 // Pure formatting helpers -- no DOM, no hass, fully unit-testable.
+//
+// Every function here treats `null`, `undefined`, AND `NaN` as "no value" --
+// not just null/undefined -- because the real-world bug this guards against
+// is a caller passing Number("unknown") (NaN) through, not just a missing
+// value. See entities.ts's numericState() for where that conversion should
+// happen in the first place.
+
+function isNoValue(n: number | null | undefined): n is null | undefined {
+  return n == null || Number.isNaN(n);
+}
+
+/** "Pavement", not "pavement" -- for raw lowercase enum-style fields
+ * (terrain, and anything similar). Human-authored text (goal titles, the
+ * dog's name, weather conditions already worded by the API) must NOT go
+ * through this -- it would mangle real casing. */
+export function capitalize(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** "1 session" / "4 sessions". */
+export function pluralize(count: number, singular: string, plural: string = `${singular}s`): string {
+  return count === 1 ? singular : plural;
+}
 
 /** Distances are always shown to 2 decimals, matching the real ha-stats
  * values (round2() server-side) rather than re-rounding them for display. */
 export function formatDistance(value: number | null | undefined, unit: string | null | undefined): string {
-  if (value == null) return "—";
+  if (isNoValue(value)) return "—";
   return `${value.toFixed(2)} ${unit ?? ""}`.trim();
 }
 
@@ -11,7 +35,7 @@ export function formatPackWeight(
   value: number | null | undefined,
   unit: string | null | undefined,
 ): string {
-  if (value == null) return "No pack";
+  if (isNoValue(value)) return "No pack";
   return `${value.toFixed(1)} ${unit ?? ""}`.trim();
 }
 
@@ -22,16 +46,30 @@ export function formatPace(pace: string | null | undefined, paceUnit: string | n
   return `${pace} ${suffix}`;
 }
 
+const DISTANCE_UNITS = new Set(["mi", "km"]);
+
+/** "2.21 / 50 mi · 4%" for distance goals; "1 / 4 sessions · 25%" (integers,
+ * no decimals) for count-type goals (sessions, calories, duration-in-minutes). */
 export function formatGoalLine(
   current: number | null | undefined,
   target: number | null | undefined,
   unit: string | null | undefined,
   percent: number | null | undefined,
 ): string {
-  const c = current != null ? current.toFixed(2) : "0.00";
-  const t = target != null ? String(target) : "?";
-  const p = percent != null ? percent : 0;
-  return `${c} / ${t} ${unit ?? ""} · ${p}%`.replace(/\s+·/, " ·");
+  const isDistance = unit != null && DISTANCE_UNITS.has(unit);
+  const safeCurrent = isNoValue(current) ? 0 : current;
+  const safeTarget = isNoValue(target) ? 0 : target;
+  const safePercent = isNoValue(percent) ? 0 : percent;
+
+  // Only current_value is forced to 2 decimals (it's a computed running
+  // total) -- target_value is shown as the user set it, typically a plain
+  // integer ("50 mile challenge" -> target 50, not "50.00").
+  const c = isDistance ? safeCurrent.toFixed(2) : String(Math.round(safeCurrent));
+  const t = isDistance ? String(safeTarget) : String(Math.round(safeTarget));
+  const unitWord =
+    unit === "sessions" ? pluralize(Math.round(safeTarget), "session") : (unit ?? "");
+
+  return `${c} / ${t} ${unitWord} · ${safePercent}%`.replace(/\s+·/, " ·");
 }
 
 export type FormClass = "form-fresh" | "form-neutral" | "form-fatigued";
@@ -50,9 +88,9 @@ export function formatWeather(
   tempUnit: string | null | undefined,
   condition: string | null | undefined,
 ): string | null {
-  if (temp == null && !condition) return null;
+  if (isNoValue(temp) && !condition) return null;
   const parts: string[] = [];
-  if (temp != null) parts.push(`${Math.round(temp)}${tempUnit ?? ""}`);
+  if (!isNoValue(temp)) parts.push(`${Math.round(temp)}${tempUnit ?? ""}`);
   if (condition) parts.push(condition);
   return parts.join(" · ");
 }
@@ -61,9 +99,9 @@ export function formatHeartRate(
   avg: number | null | undefined,
   max: number | null | undefined,
 ): string | null {
-  if (avg == null && max == null) return null;
-  const a = avg != null ? Math.round(avg) : "—";
-  const m = max != null ? Math.round(max) : "—";
+  if (isNoValue(avg) && isNoValue(max)) return null;
+  const a = !isNoValue(avg) ? Math.round(avg) : "—";
+  const m = !isNoValue(max) ? Math.round(max) : "—";
   return `${a} / ${m} bpm`;
 }
 
@@ -73,7 +111,7 @@ export function formatDogName(dogName: string | null | undefined): string | null
 }
 
 export function formatStars(rating: number | null | undefined): string | null {
-  if (rating == null) return null;
+  if (isNoValue(rating)) return null;
   const clamped = Math.max(0, Math.min(5, Math.round(rating)));
   return "★".repeat(clamped) + "☆".repeat(5 - clamped);
 }
