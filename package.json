@@ -1,6 +1,6 @@
 {
   "name": "getrucked-card",
-  "version": "0.2.0",
+  "version": "0.1.0-beta.5",
   "private": true,
   "description": "Get-Rucked Lovelace card, bundled into the ha-getrucked integration",
   "type": "module",

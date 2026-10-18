@@ -63,9 +63,11 @@ Don't want to use HACS? A YAML-based setup (no custom integration) is also docum
 
 ## Status
 
-Pre-release (currently beta.3, after beta.1/beta.2) — not yet tagged as the full `v0.1.0`. The card above has been through a design-review mockup pass (the screenshots are that approved design) but **not yet exercised on a real Home Assistant instance** — things like the exact `window.customCards` picker behavior, the storage-mode Lovelace resource auto-create/update, and the "Premium required" detection via `hass.issues` are implemented against the documented APIs but still need a live confirm. `v0.1.0` won't be tagged until that happens.
+Pre-release (currently beta.5, after beta.1–beta.4) — not yet tagged as the full `v0.1.0`. The card above has been through a design-review mockup pass (the screenshots are that approved design) but **not yet exercised on a real Home Assistant instance** — things like the exact `window.customCards` picker behavior, the storage-mode Lovelace resource auto-create/update, and the "Premium required" detection via `hass.issues` are implemented against the documented APIs but still need a live confirm. `v0.1.0` won't be tagged until that happens.
 
-Local brand icon (`custom_components/getrucked/brand/`) is already in place, per Home Assistant 2026.3+'s local-brand-image support — no `home-assistant/brands` PR needed.
+Every pre-release's `manifest.json` `version` is kept in sync with its GitHub tag (`v0.1.0-beta.N` ↔ `0.1.0bN`, PEP 440 style, since that's what Home Assistant's own version comparator expects) specifically so the integration's page in Settings shows which beta you actually have installed, instead of every beta showing the same bare `0.1.0`.
+
+Local brand icon (`custom_components/getrucked/brand/`) is already in place, per Home Assistant 2026.3+'s local-brand-image support — no `home-assistant/brands` PR needed, and it displays correctly on the integration's own page in Home Assistant. **HACS's own repository-browser listing will still show "icon not available"** for this repo — that's a currently-open upstream HACS bug ([hacs/integration#5171](https://github.com/hacs/integration/issues/5171), [#5223](https://github.com/hacs/integration/issues/5223)): HACS's downloads panel pulls icons from a central CDN populated from the `home-assistant/brands` repo, which stopped accepting custom-integration icon submissions once local brand images were introduced — so there's currently no way for a custom (non-default-catalog) repo to supply HACS's own listing icon. A fix has been proposed upstream ([hacs/frontend#945](https://github.com/hacs/frontend/pull/945)) but isn't confirmed merged as of this writing. Nothing to do here until that lands.
 
 ## Development
 
