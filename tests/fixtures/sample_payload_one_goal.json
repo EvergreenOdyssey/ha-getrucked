@@ -1,0 +1,70 @@
+{
+  "updated_at": "2026-01-02T12:00:00.000Z",
+  "account_id": "getrucked:0000000000000000000000000000000000000000000000000000000000000000",
+  "units": "imperial",
+  "calc_version": "2026-10-17.1",
+  "latest_ruck": {
+    "date": "2026-01-02T10:00:00+00:00",
+    "type": "walk",
+    "distance": 4.0,
+    "distance_unit": "mi",
+    "duration_minutes": 65,
+    "pace": "16:15",
+    "pace_unit": "min/mi",
+    "weight": 35.0,
+    "weight_unit": "lbs",
+    "elevation_gain": 210,
+    "elevation_loss": 190,
+    "elevation_unit": "ft",
+    "steps": 7400,
+    "calories_burned": 440,
+    "avg_cadence": 112,
+    "terrain": "trail",
+    "rating": 5
+  },
+  "weekly": {
+    "session_count": 4,
+    "total_distance": 14.2,
+    "distance_unit": "mi",
+    "total_minutes": 245,
+    "elevation_gain": 710,
+    "elevation_unit": "ft",
+    "calories": 1640,
+    "training_load": 200
+  },
+  "monthly": {
+    "session_count": 11,
+    "total_distance": 44.0,
+    "distance_unit": "mi",
+    "total_minutes": 665,
+    "elevation_gain": 2210,
+    "elevation_unit": "ft",
+    "calories": 5240,
+    "training_load": 650
+  },
+  "goals": [
+    {
+      "id": 1,
+      "title": "50 mile challenge",
+      "type": "distance",
+      "current_value": 14.2,
+      "target_value": 50,
+      "unit": "mi",
+      "period": "monthly",
+      "percent_complete": 28
+    }
+  ],
+  "training_load": {
+    "fitness_ctl": 47,
+    "fatigue_atl": 32,
+    "form_tsb": 15,
+    "form_label": "Fresh — Ready to perform"
+  },
+  "rank": {
+    "name": "Iron Back",
+    "icon": "💪",
+    "total_miles": 154.5,
+    "next_rank_name": "Summit Chaser",
+    "miles_to_next": 45.5
+  }
+}

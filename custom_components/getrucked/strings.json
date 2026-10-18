@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Paste the API token from the Get-Rucked app (Profile → Home Assistant → Generate New Token). Don't include \"Bearer \" — just the token itself.",
+        "data": {
+          "token": "Token"
+        }
+      },
+      "reauth_confirm": {
+        "description": "Your Get-Rucked token for this account is no longer valid. Generate a new one in the app and paste it here.",
+        "data": {
+          "token": "Token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid or revoked token.",
+      "premium_required": "This account doesn't have an active Get-Rucked Premium subscription.",
+      "rate_limited": "Rate limited by the Get-Rucked API — wait a minute and try again.",
+      "cannot_connect": "Couldn't reach the Get-Rucked API. Check your connection and try again.",
+      "account_mismatch": "This token belongs to a different Get-Rucked account than the one being re-authenticated."
+    },
+    "abort": {
+      "already_configured": "This Get-Rucked account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval_minutes": "Poll interval (minutes, minimum 15)"
+        }
+      }
+    }
+  },
+  "issues": {
+    "premium_required": {
+      "title": "Get-Rucked Premium required",
+      "description": "Your Get-Rucked account's Premium subscription has lapsed, so stats can't be fetched right now. This will clear itself once Premium is active again — no need to do anything here."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "latest_ruck_distance": { "name": "Latest Ruck Distance" },
+      "weekly_distance": { "name": "Weekly Distance" },
+      "monthly_distance": { "name": "Monthly Distance" },
+      "fitness_ctl": { "name": "Fitness (CTL)" },
+      "fatigue_atl": { "name": "Fatigue (ATL)" },
+      "form_tsb": { "name": "Form (TSB)" },
+      "rank": { "name": "Rank" },
+      "distance_to_next_rank": { "name": "Distance To Next Rank" },
+      "goal_percent": { "name": "Goal: {title}" }
+    }
+  }
+}
