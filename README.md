@@ -2,12 +2,23 @@
 
 A [HACS](https://hacs.xyz/) custom integration that pulls your [Get-Rucked](https://www.get-rucked.com/) stats — latest ruck, weekly/monthly distance, goals, training load (CTL/ATL/TSB), and rank — into Home Assistant. Requires an active **Get-Rucked Premium** subscription.
 
-## Install via HACS
+## Install
 
-1. In HACS, add this repository as a **custom repository**: `EvergreenOdyssey/ha-getrucked` (category: Integration).
-2. Install **Get-Rucked**, then restart Home Assistant.
-3. **Settings → Devices & Services → Add Integration → Get-Rucked**.
-4. In the Get-Rucked app: **Profile → Home Assistant → Generate New Token**, then paste the raw token (no `Bearer` prefix — the integration adds that itself) into the setup dialog.
+How you add this repository depends on your Home Assistant version:
+
+### Home Assistant 2026.10 and older (HACS)
+
+1. In HACS, open the **⋮** menu (top right) → **Custom repositories** → paste `EvergreenOdyssey/ha-getrucked` → category **Integration** → **Add**.
+2. Install **Get-Rucked** from HACS, then restart Home Assistant.
+
+### Home Assistant 2026.11 and newer (Marketplace)
+
+Starting with 2026.11, the standalone HACS integration is replaced by **Marketplace**, built into Home Assistant under **Settings → Marketplace**. It reads the same catalog as HACS and uses the same `hacs.json`, so this repo doesn't need separate support for it — but it does apply stricter checks before installing a repo, and (per the official docs) expects the repo to have at least one published **release**, not just commits on the default branch. This repo isn't tagged yet (see Status below), so if you're already on 2026.11+, installing via Marketplace may not work cleanly until v0.1.0 is tagged — the exact add-a-custom-repo flow for Marketplace isn't documented publicly as of this writing, so test this one yourself rather than taking this README's word for it.
+
+### Then, either way
+
+1. **Settings → Devices & Services → Add Integration → Get-Rucked**.
+2. In the Get-Rucked app: **Profile → Home Assistant → Generate New Token**, then paste the raw token (no `Bearer` prefix — the integration adds that itself) into the setup dialog.
 
 That's it — a "Get-Rucked" device appears with all the sensors below, polling every 15 minutes by default (configurable, minimum 15 minutes, via the integration's **Configure** button).
 
@@ -29,6 +40,12 @@ That's it — a "Get-Rucked" device appears with all the sensors below, polling 
 ## Manual YAML setup
 
 Don't want to use HACS? A YAML-based setup (no custom integration) is also documented at [get-rucked.com/home-assistant](https://www.get-rucked.com/home-assistant).
+
+## Status
+
+Not yet tagged as a release — see the repo's issues/PRs for current state. CI (hassfest, HACS validation, pytest) runs on every push.
+
+No custom icon/logo ships yet. Since Home Assistant 2026.3, a custom integration can ship its own brand images locally (a `brand/` folder inside `custom_components/getrucked/` with `icon.png`/`logo.png`, `@2x` variants, and optional `dark_*` versions) instead of submitting to the [home-assistant/brands](https://github.com/home-assistant/brands) repo — in fact brands-repo submissions for custom integrations are being phased out now that the local option exists. Adding one is a follow-up, not done here.
 
 ## Development
 
