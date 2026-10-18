@@ -78,13 +78,49 @@ async def test_premium_required_creates_then_clears_issue(hass):
     assert registry.async_get_issue(DOMAIN, issue_id) is None
 
 
-@pytest.mark.parametrize("side_effect", [api.RateLimited(), api.CannotConnect()])
-async def test_other_errors_raise_update_failed(hass, side_effect):
+async def test_cannot_connect_raises_update_failed(hass):
     entry = _make_entry(hass)
     coordinator = GetRuckedDataUpdateCoordinator(hass, entry)
 
     with patch(
         "custom_components.getrucked.coordinator.api.async_get_stats",
-        AsyncMock(side_effect=side_effect),
+        AsyncMock(side_effect=api.CannotConnect()),
     ), pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
+
+
+async def test_rate_limited_retries_once_then_succeeds(hass):
+    """A 429 should be retried once after the server's Retry-After, not
+    fail the update outright."""
+    entry = _make_entry(hass)
+    coordinator = GetRuckedDataUpdateCoordinator(hass, entry)
+    payload = load_fixture("sample_payload.json")
+    mock_get_stats = AsyncMock(side_effect=[api.RateLimited(retry_after=5), payload])
+
+    with patch(
+        "custom_components.getrucked.coordinator.api.async_get_stats", mock_get_stats
+    ), patch(
+        "custom_components.getrucked.coordinator.asyncio.sleep", AsyncMock()
+    ) as mock_sleep:
+        data = await coordinator._async_update_data()
+
+    assert data == payload
+    assert mock_get_stats.call_count == 2
+    mock_sleep.assert_awaited_once_with(5)
+
+
+async def test_rate_limited_twice_raises_update_failed(hass):
+    """If the server is still rate limiting us after honoring its own
+    Retry-After, that's a real failure -- don't retry forever."""
+    entry = _make_entry(hass)
+    coordinator = GetRuckedDataUpdateCoordinator(hass, entry)
+    mock_get_stats = AsyncMock(side_effect=api.RateLimited(retry_after=5))
+
+    with patch(
+        "custom_components.getrucked.coordinator.api.async_get_stats", mock_get_stats
+    ), patch(
+        "custom_components.getrucked.coordinator.asyncio.sleep", AsyncMock()
+    ), pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
+
+    assert mock_get_stats.call_count == 2

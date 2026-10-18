@@ -46,6 +46,33 @@ async def test_user_flow_success(hass):
     )
 
 
+async def test_setup_does_not_refetch_after_validation(hass):
+    """Regression test for the v0.1.0-beta.1 bug: entry setup right after
+    the config flow validates a token must not make a second ha-stats
+    request within the server's 60-second-per-token rate limit. The
+    coordinator should be seeded from the validation response instead.
+    """
+    payload = load_fixture("sample_payload.json")
+    mock_get_stats = AsyncMock(return_value=payload)
+
+    with patch("custom_components.getrucked.api.async_get_stats", mock_get_stats):
+        result = await _start_user_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_TOKEN: FAKE_TOKEN}
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert mock_get_stats.call_count == 1, (
+        "setup made a second ha-stats call instead of reusing the "
+        "validation response"
+    )
+
+    coordinator = result["result"].runtime_data
+    assert coordinator.data == payload
+    assert coordinator.last_update_success is True
+
+
 @pytest.mark.parametrize(
     ("side_effect", "expected_error"),
     [
@@ -104,17 +131,24 @@ async def test_reauth_success_same_account(hass):
     result = await entry.start_reauth_flow(hass)
     assert result["step_id"] == "reauth_confirm"
 
-    with patch(
-        "custom_components.getrucked.config_flow.api.async_get_stats",
-        AsyncMock(return_value=payload),
-    ):
+    mock_get_stats = AsyncMock(return_value=payload)
+    with patch("custom_components.getrucked.api.async_get_stats", mock_get_stats):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_TOKEN: FAKE_TOKEN}
         )
+        # async_reload (triggered on success, before this returns) sets up
+        # the entry synchronously, so no extra async_block_till_done needed
+        # -- but assert it reused the validation response regardless.
+        await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert entry.data[CONF_TOKEN] == FAKE_TOKEN
+    assert mock_get_stats.call_count == 1, (
+        "reauth setup made a second ha-stats call instead of reusing the "
+        "validation response"
+    )
+    assert entry.runtime_data.data == payload
 
 
 async def test_reauth_account_mismatch(hass):

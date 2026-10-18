@@ -19,6 +19,7 @@ from . import api
 from .const import (
     CONF_SCAN_INTERVAL_MINUTES,
     CONF_TOKEN,
+    DATA_SEED_PAYLOADS,
     DEFAULT_SCAN_INTERVAL_MINUTES,
     DOMAIN,
     MIN_SCAN_INTERVAL_MINUTES,
@@ -38,23 +39,32 @@ class GetRuckedConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_validate_token(
         self, token: str
-    ) -> tuple[dict[str, str], str | None]:
+    ) -> tuple[dict[str, str], str | None, dict[str, Any] | None]:
         """Validate a token against the live API.
 
-        Returns (errors, account_id). account_id is None if errors is non-empty.
+        Returns (errors, account_id, payload). account_id and payload are
+        None if errors is non-empty. The payload is the full ha-stats
+        response, kept so the setup that follows this flow can seed the
+        coordinator with it instead of making a second request against the
+        server's 60-second-per-token rate limit.
         """
         session = aiohttp_client.async_get_clientsession(self.hass)
         try:
             data = await api.async_get_stats(session, token, self.hass.config.time_zone)
         except api.InvalidAuth:
-            return {"base": "invalid_auth"}, None
+            return {"base": "invalid_auth"}, None, None
         except api.PremiumRequired:
-            return {"base": "premium_required"}, None
+            return {"base": "premium_required"}, None, None
         except api.RateLimited:
-            return {"base": "rate_limited"}, None
+            return {"base": "rate_limited"}, None, None
         except api.CannotConnect:
-            return {"base": "cannot_connect"}, None
-        return {}, data.get("account_id")
+            return {"base": "cannot_connect"}, None, None
+        return {}, data.get("account_id"), data
+
+    def _stash_seed_payload(self, account_id: str, payload: dict[str, Any]) -> None:
+        self.hass.data.setdefault(DOMAIN, {}).setdefault(DATA_SEED_PAYLOADS, {})[
+            account_id
+        ] = payload
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -64,10 +74,11 @@ class GetRuckedConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             token = user_input[CONF_TOKEN].strip()
-            errors, account_id = await self._async_validate_token(token)
-            if not errors and account_id:
+            errors, account_id, payload = await self._async_validate_token(token)
+            if not errors and account_id and payload is not None:
                 await self.async_set_unique_id(account_id)
                 self._abort_if_unique_id_configured()
+                self._stash_seed_payload(account_id, payload)
                 return self.async_create_entry(
                     title="Get-Rucked",
                     data={CONF_TOKEN: token},
@@ -95,11 +106,12 @@ class GetRuckedConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             assert self._reauth_entry is not None
             token = user_input[CONF_TOKEN].strip()
-            errors, account_id = await self._async_validate_token(token)
-            if not errors and account_id:
+            errors, account_id, payload = await self._async_validate_token(token)
+            if not errors and account_id and payload is not None:
                 if account_id != self._reauth_entry.unique_id:
                     errors = {"base": "account_mismatch"}
                 else:
+                    self._stash_seed_payload(account_id, payload)
                     self.hass.config_entries.async_update_entry(
                         self._reauth_entry,
                         data={**self._reauth_entry.data, CONF_TOKEN: token},
