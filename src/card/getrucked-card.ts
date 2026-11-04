@@ -9,9 +9,11 @@ import {
   DEFAULT_RUCK_FIELDS_COMPACT,
   DEFAULT_RUCK_FIELDS_DETAILED,
   type GetRuckedCardConfig,
+  type Layout,
   type MetricKey,
   type RuckFieldKey,
 } from "./const";
+import { normalizeLayout, planWide } from "./layout";
 import {
   findEntityIdByTranslationKey,
   findGoalEntityIds,
@@ -56,21 +58,27 @@ export class GetRuckedCard extends LitElement {
 
   setConfig(config: GetRuckedCardConfig): void {
     if (!config) throw new Error("Invalid configuration");
-    const layout = config.layout === "detailed" ? "detailed" : "compact";
+    const layout = normalizeLayout(config.layout);
+    const full = layout !== "compact";
     this._config = {
       ...config,
       layout,
-      metrics:
-        config.metrics ??
-        (layout === "detailed" ? DEFAULT_METRICS_DETAILED : DEFAULT_METRICS_COMPACT),
+      metrics: config.metrics ?? (full ? DEFAULT_METRICS_DETAILED : DEFAULT_METRICS_COMPACT),
       ruck_fields:
-        config.ruck_fields ??
-        (layout === "detailed" ? DEFAULT_RUCK_FIELDS_DETAILED : DEFAULT_RUCK_FIELDS_COMPACT),
+        config.ruck_fields ?? (full ? DEFAULT_RUCK_FIELDS_DETAILED : DEFAULT_RUCK_FIELDS_COMPACT),
     };
   }
 
   getCardSize(): number {
-    return this._config?.layout === "detailed" ? 8 : 4;
+    const layout = this._config?.layout;
+    return layout === "detailed" ? 8 : layout === "wide" ? 5 : 4;
+  }
+
+  /** Sections view: the wide layout spans the full row by default. */
+  getGridOptions(): Record<string, unknown> {
+    return this._config?.layout === "wide"
+      ? { columns: "full", min_columns: 6 }
+      : { columns: 6, min_columns: 3 };
   }
 
   private _entity(translationKey: string): string | null {
@@ -90,11 +98,11 @@ export class GetRuckedCard extends LitElement {
     if (!this.hass || !this._config) return html``;
 
     const deviceId = this._config.device_id;
-    const isCompact = this._config.layout !== "detailed";
+    const layout = normalizeLayout(this._config.layout);
 
     if (!deviceId) {
       return this._shell(
-        isCompact,
+        layout,
         html`<div class="gr-simple-state">
           <p>No Get-Rucked device selected. Edit this card to pick one.</p>
         </div>`,
@@ -103,7 +111,7 @@ export class GetRuckedCard extends LitElement {
 
     if (hasPremiumRequiredIssue(this.hass, deviceId)) {
       return this._shell(
-        isCompact,
+        layout,
         html`<div class="gr-premium">
           <div class="gr-premium-badge">⭐ Premium Feature</div>
           <p class="gr-premium-msg">
@@ -121,7 +129,7 @@ export class GetRuckedCard extends LitElement {
 
     if (!rankState) {
       return this._shell(
-        isCompact,
+        layout,
         html`<div class="gr-simple-state">
           <div class="gr-spinner"></div>
           <p>Loading Get-Rucked stats…</p>
@@ -131,7 +139,7 @@ export class GetRuckedCard extends LitElement {
 
     if (rankState.state === "unavailable") {
       return this._shell(
-        isCompact,
+        layout,
         html`<div class="gr-simple-state">
           <p class="gr-warn-icon">⚠️</p>
           <p><strong>Get-Rucked is unavailable</strong></p>
@@ -140,14 +148,23 @@ export class GetRuckedCard extends LitElement {
       );
     }
 
-    return this._shell(isCompact, isCompact ? this._renderCompactBody() : this._renderDetailedBody(), true);
+    const body =
+      layout === "compact"
+        ? this._renderCompactBody()
+        : layout === "wide"
+          ? this._renderWideBody()
+          : this._renderDetailedBody();
+    return this._shell(layout, body, true);
   }
 
-  private _shell(isCompact: boolean, body: TemplateResult, withFooter = false): TemplateResult {
-    const logo = isCompact ? LOGO_WORDMARK : LOGO_FULL;
+  private _shell(layout: Layout, body: TemplateResult, withFooter = false): TemplateResult {
+    // Wide keeps the short wordmark banner: vertical space is what a
+    // landscape wall screen is short on.
+    const short = layout !== "detailed";
+    const logo = short ? LOGO_WORDMARK : LOGO_FULL;
     return html`
       <ha-card>
-        <div class="gr-banner ${isCompact ? "compact" : "detailed"}">
+        <div class="gr-banner ${short ? "compact" : "detailed"}">
           <img src=${logo} alt="Get-Rucked" />
         </div>
         <div class="gr-banner-accent"></div>
@@ -198,7 +215,7 @@ export class GetRuckedCard extends LitElement {
     `;
   }
 
-  private _renderWeekMonthForm(threeCol: boolean): TemplateResult {
+  private _renderWeekMonthForm(threeCol: boolean, includeForm = true): TemplateResult {
     const weeklyId = this._entity("weekly_distance");
     const weekly = getState(this.hass, weeklyId);
     const monthlyId = this._entity("monthly_distance");
@@ -250,13 +267,14 @@ export class GetRuckedCard extends LitElement {
         <div class="gr-chip-sub ${formClass}">${threeCol ? label.split(" — ")[0] : label}</div>
       </div>
     `;
-    if (threeCol && this._hasMetric("form_tsb")) chips.push(formChip);
+    const showForm = includeForm && this._hasMetric("form_tsb");
+    if (threeCol && showForm) chips.push(formChip);
 
     if (!chips.length) return html``;
     return html`
-      <div class="gr-section-title">This Week / Month${threeCol ? " / Form" : ""}</div>
-      <div class="gr-chip-grid ${threeCol ? "cols-3" : ""}">${chips}</div>
-      ${!threeCol && this._hasMetric("form_tsb")
+      <div class="gr-section-title">This Week / Month${threeCol && includeForm ? " / Form" : ""}</div>
+      <div class="gr-chip-grid ${threeCol && (includeForm || chips.length === 3) ? "cols-3" : ""}">${chips}</div>
+      ${!threeCol && showForm
         ? html`<div class="gr-section-title">Form</div>
             <div class="gr-chip-grid">${formChip}</div>`
         : nothing}
@@ -295,7 +313,7 @@ export class GetRuckedCard extends LitElement {
     `;
   }
 
-  private _renderLatestRuck(compact: boolean): TemplateResult | typeof nothing {
+  private _renderLatestRuck(compact: boolean, fourCol = compact): TemplateResult | typeof nothing {
     if (!this._hasMetric("latest_ruck")) return nothing;
     const entityId = this._entity("latest_ruck_distance");
     const distState = getState(this.hass, entityId);
@@ -412,7 +430,7 @@ export class GetRuckedCard extends LitElement {
             <span class="gr-ruck-type">${typeIcon} ${type.charAt(0).toUpperCase() + type.slice(1)}</span>
             <span class="gr-ruck-date">${dateLabel}</span>
           </div>`}
-      <div class="gr-ruck-fields ${compact ? "cols-4" : ""}">${fields}</div>
+      <div class="gr-ruck-fields ${fourCol ? "cols-4" : ""}">${fields}</div>
     `;
   }
 
@@ -471,6 +489,32 @@ export class GetRuckedCard extends LitElement {
     `;
   }
 
+  private _renderWideBody(): TemplateResult {
+    const deviceId = this._config.device_id!;
+    const plan = planWide(this._config.metrics ?? [], findGoalEntityIds(this.hass, deviceId).length > 0);
+
+    const columns = plan.columns.map((col) => {
+      switch (col) {
+        case "progress":
+          return html`<div class="gr-wide-col">
+            ${this._hasMetric("rank") ? this._renderRank(false) : nothing}
+            ${this._renderWeekMonthForm(true, plan.formInWeekRow)}
+            ${plan.showTrainingLoad ? this._renderTrainingLoad() : nothing}
+          </div>`;
+        case "ruck":
+          return html`<div class="gr-wide-col">${this._renderLatestRuck(false, true)}</div>`;
+        case "goals":
+          return html`<div class="gr-wide-col">${this._renderGoals()}</div>`;
+      }
+    });
+
+    return html`
+      <div class="gr-body wide">
+        <div class="gr-wide-grid cols-${plan.columns.length}">${columns}</div>
+      </div>
+    `;
+  }
+
   static styles = css`
     :host {
       --gr-amber: #f59e0b;
@@ -525,6 +569,80 @@ export class GetRuckedCard extends LitElement {
     }
     .gr-body.compact {
       padding: 8px 14px 0;
+    }
+    /* ---- wide layout: columns for a landscape wall screen ---- */
+    .gr-body.wide {
+      padding: 12px 16px 2px;
+      container-type: inline-size;
+    }
+    .gr-wide-grid {
+      display: grid;
+      gap: 0 20px;
+      align-items: start;
+    }
+    .gr-wide-grid.cols-3 {
+      /* the Latest Ruck column holds the most fields, so it gets the most room */
+      grid-template-columns: 1fr 1.35fr 0.9fr;
+    }
+    .gr-wide-grid.cols-2 {
+      grid-template-columns: 1fr 1.35fr;
+    }
+    .gr-wide-grid.cols-1 {
+      grid-template-columns: 1fr;
+    }
+    .gr-wide-col {
+      min-width: 0;
+    }
+    .gr-wide-col + .gr-wide-col {
+      border-left: 1px solid var(--gr-divider);
+      padding-left: 20px;
+    }
+    .gr-body.wide .gr-section-title {
+      margin: 10px 0 6px;
+    }
+    .gr-body.wide .gr-wide-col > .gr-section-title:first-child,
+    .gr-body.wide .gr-wide-col > .gr-rank:first-child {
+      margin-top: 0;
+    }
+    .gr-body.wide .gr-rank {
+      padding: 8px 12px;
+      gap: 10px;
+    }
+    .gr-body.wide .gr-chip-sub {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gr-body.wide .gr-goal {
+      margin-bottom: 8px;
+    }
+    /* Too narrow for side-by-side columns (phone, half-width card):
+       fall back to two columns, then one -- same content, just taller. */
+    @container (max-width: 820px) {
+      .gr-wide-grid.cols-3 {
+        grid-template-columns: 1fr 1fr;
+      }
+      .gr-wide-grid.cols-3 > .gr-wide-col:nth-child(3) {
+        grid-column: 1 / -1;
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--gr-divider);
+        margin-top: 10px;
+        padding-top: 10px;
+      }
+    }
+    @container (max-width: 540px) {
+      .gr-wide-grid.cols-3,
+      .gr-wide-grid.cols-2 {
+        grid-template-columns: 1fr;
+      }
+      .gr-wide-col + .gr-wide-col {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--gr-divider);
+        margin-top: 10px;
+        padding-top: 10px;
+      }
     }
     .gr-section-title {
       font-size: 11px;

@@ -46,7 +46,15 @@ A bundled `custom:getrucked-card` ships with the integration — no separate ins
 **Adding the card:**
 
 1. Edit a dashboard → **Add Card** → search for **Get-Rucked** (or add it as `type: custom:getrucked-card` in YAML mode).
-2. Pick your Get-Rucked device, a **Compact** or **Detailed** layout, and which metrics/Latest Ruck fields to show — each list has checkboxes and ▲▼ buttons to reorder. Compact defaults to rank, week/month, Form (TSB), and a condensed Latest Ruck; Training Load and Goals are off by default in compact (toggle them on if you want a taller card).
+2. Pick your Get-Rucked device, a **Compact**, **Detailed** or **Wide** layout, and which metrics/Latest Ruck fields to show — each list has checkboxes and ▲▼ buttons to reorder. Compact defaults to rank, week/month, Form (TSB), and a condensed Latest Ruck; Training Load and Goals are off by default in compact (toggle them on if you want a taller card).
+
+**Wide layout (wall screens):** everything Detailed shows, arranged in three columns — rank, week/month and training load on the left, the full Latest Ruck in the middle, goals on the right — so the whole card fits in about 300 px of height on a full-width 1366×768 screen. Use it in a **Panel** view, or in a **Sections** view where it spans the full row by default. On narrower cards it drops to two columns, then one, so it still works on a phone.
+
+```yaml
+type: custom:getrucked-card
+device_id: <your device>
+layout: wide
+```
 3. Tapping any metric opens its normal Home Assistant more-info dialog (history graph), the same as tapping an entity row anywhere else in HA.
 
 The card follows your dashboard's light/dark theme automatically — only the "Get-Rucked" banner strip stays a fixed near-black, matching the brand everywhere else in the product.

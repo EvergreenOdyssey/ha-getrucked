@@ -2,7 +2,13 @@ export const CARD_TAG = "getrucked-card";
 export const EDITOR_TAG = "getrucked-card-editor";
 export const PLATFORM = "getrucked";
 
-export type Layout = "compact" | "detailed";
+/**
+ * compact  -- short, narrow card for a busy dashboard column
+ * detailed -- everything, stacked vertically (tall)
+ * wide     -- everything, laid out in columns for a full-width / landscape
+ *             wall screen (e.g. 1366x768) so it fits without scrolling
+ */
+export type Layout = "compact" | "detailed" | "wide";
 
 /** Main-section metric keys, matching sensor.py's translation_key values. */
 export const METRIC_KEYS = [

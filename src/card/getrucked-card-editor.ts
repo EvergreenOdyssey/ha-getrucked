@@ -14,6 +14,7 @@ import {
   type RuckFieldKey,
 } from "./const";
 import { listGetRuckedDevices } from "./entities";
+import { normalizeLayout } from "./layout";
 
 const METRIC_LABELS: Record<MetricKey, string> = {
   rank: "Rank",
@@ -77,9 +78,9 @@ export class GetRuckedCardEditor extends LitElement {
       // silently discard a deliberate selection.
       ...(defaultsChanged
         ? {
-            metrics: layout === "detailed" ? DEFAULT_METRICS_DETAILED : DEFAULT_METRICS_COMPACT,
+            metrics: layout === "compact" ? DEFAULT_METRICS_COMPACT : DEFAULT_METRICS_DETAILED,
             ruck_fields:
-              layout === "detailed" ? DEFAULT_RUCK_FIELDS_DETAILED : DEFAULT_RUCK_FIELDS_COMPACT,
+              layout === "compact" ? DEFAULT_RUCK_FIELDS_COMPACT : DEFAULT_RUCK_FIELDS_DETAILED,
           }
         : {}),
     };
@@ -175,7 +176,7 @@ export class GetRuckedCardEditor extends LitElement {
   render(): TemplateResult {
     if (!this.hass || !this._config) return html``;
     const devices = listGetRuckedDevices(this.hass);
-    const layout: Layout = this._config.layout === "detailed" ? "detailed" : "compact";
+    const layout: Layout = normalizeLayout(this._config.layout);
 
     return html`
       <div class="gr-editor-section">
@@ -219,6 +220,23 @@ export class GetRuckedCardEditor extends LitElement {
           />
           Detailed</label
         >
+        <label
+          ><input
+            type="radio"
+            name="layout"
+            value="wide"
+            .checked=${layout === "wide"}
+            @change=${() => this._setLayout("wide")}
+          />
+          Wide</label
+        >
+        ${layout === "wide"
+          ? html`<p class="gr-editor-hint">
+              Everything from Detailed, arranged in columns for a full-width card on a landscape
+              screen. Best in a Panel view or a full-width Sections card; narrow cards fall back
+              to fewer columns.
+            </p>`
+          : ""}
       </div>
 
       ${this._renderList("Metrics (checked = shown, use ▲▼ to reorder)", "metrics", METRIC_KEYS, METRIC_LABELS)}
